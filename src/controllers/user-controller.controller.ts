@@ -15,15 +15,22 @@ import {
   put,
   del,
   requestBody,
-  response,
+  response, HttpErrors,
 } from '@loopback/rest';
-import {User} from '../models';
+import {Credentials, User} from '../models';
 import {UserRepository} from '../repositories';
+import {service} from "@loopback/core";
+import {AuthService} from "../services";
+import axios from "axios";
+import {authenticate} from "@loopback/authentication";
 
+@authenticate("admin")
 export class UserControllerController {
   constructor(
     @repository(UserRepository)
     public userRepository : UserRepository,
+    @service(AuthService)
+    public servicioAuth: AuthService
   ) {}
 
   @post('/users')
@@ -44,7 +51,38 @@ export class UserControllerController {
     })
     user: Omit<User, 'id'>,
   ): Promise<User> {
-    return this.userRepository.create(user);
+    let clave = this.servicioAuth.GenerarClave();
+    let claveCifrada = this.servicioAuth.CifrarClave(clave);
+    user.password = claveCifrada;
+    let p = await this.userRepository.create(user);
+
+    // Notificamos al usuario por correo
+    let destino = user.email;
+// Notifiamos al usuario por telefono y cambiar la url por send_sms
+    // let destino = usuario.telefono;
+
+    let asunto = 'Registro de usuario en plataforma';
+    let contenido = `Hola, ${user.name} ${user.lastName} su contraseña en el portal es: ${clave}`
+    axios({
+      method: 'post',
+      url: 'http://host.docker.internal:5000/send_email', //Si quiero enviar por mensaje cambiar a send_sms
+
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      data: {
+        destino: destino,
+        asunto: asunto,
+        contenido: contenido
+      }
+    }).then((data: any) => {
+      console.log(data)
+    }).catch((err: any) => {
+      console.log(err)
+    })
+
+    return p;
   }
 
   @get('/users/count')
@@ -147,4 +185,35 @@ export class UserControllerController {
   async deleteById(@param.path.string('id') id: string): Promise<void> {
     await this.userRepository.deleteById(id);
   }
+
+  @authenticate.skip()
+  @post('/login', {
+    responses: {
+      '200': {
+        description: 'Identificación de usuarios'
+      }
+    }
+  })
+  async login(
+      @requestBody() credenciales: Credentials
+  ) {
+    let p = await this.servicioAuth.IdentificarPersona(credenciales.user, credenciales.password);
+    if (p) {
+      let token = this.servicioAuth.GenerarTokenJWT(p);
+
+      return {
+        status: "success",
+        data: {
+          nombre: p.name,
+          apellidos: p.lastName,
+          correo: p.email,
+          id: p.id
+        },
+        token: token
+      }
+    } else {
+      throw new HttpErrors[401]("Datos invalidos")
+    }
+  }
+
 }

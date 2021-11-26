@@ -63,6 +63,8 @@ typings/
 # Cache used by TypeScript's incremental build
 *.tsbuildinfo
 
+*.DS_Store
+
 # IDE Configs
 .vscode
 .idea
@@ -73,3 +75,6 @@ docker-compose.yml
 
 #Docker volumes
 data
+
+#Configs
+src/config/config.ts

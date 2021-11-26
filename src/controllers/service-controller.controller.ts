@@ -19,7 +19,9 @@ import {
 } from '@loopback/rest';
 import {Services} from '../models';
 import {ServicesRepository} from '../repositories';
+import {authenticate} from "@loopback/authentication";
 
+@authenticate("admin")
 export class ServiceControllerController {
   constructor(
     @repository(ServicesRepository)

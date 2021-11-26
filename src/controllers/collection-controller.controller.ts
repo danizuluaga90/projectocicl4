@@ -19,7 +19,9 @@ import {
 } from '@loopback/rest';
 import {Collection} from '../models';
 import {CollectionRepository} from '../repositories';
+import {authenticate} from "@loopback/authentication";
 
+@authenticate("admin")
 export class CollectionControllerController {
   constructor(
     @repository(CollectionRepository)
